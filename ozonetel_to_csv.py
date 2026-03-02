@@ -1,66 +1,107 @@
-import os
-import csv
 import requests
-from datetime import datetime, timedelta
-from pathlib import Path
+import csv
+from datetime import datetime
+import json
+import sys
+import os
 
-OZ_DOMAIN = os.environ["OZONETEL_DOMAIN"]
-OZ_API_KEY = os.environ["OZONETEL_API_KEY"]
-OZ_USERNAME = os.environ["OZONETEL_USERNAME"]
+def fetch_agent_summary():
+    """Fetch Agent Summary data from Ozonetel API"""
 
-OUTPUT_DIR = Path("data")
-OUTPUT_DIR.mkdir(exist_ok=True)
+    API_URL = "https://in1-ccaas-api.ozonetel.com/ca_reports/summaryReport"
+    API_KEY = os.environ.get("OZONETEL_API_KEY")
+    USERNAME = os.environ.get("OZONETEL_USERNAME")
 
-def fetch_ozonetel_data():
-    url = f"https://{OZ_DOMAIN}/ca_reports/summaryReport"
+    # FULL DAY (same pattern as your CDR script)
+    today = datetime.now()
+    from_date = today.strftime("%Y-%m-%d 00:00:00")
+    to_date = today.strftime("%Y-%m-%d 23:59:59")
+
+    print("👤 Fetching Agent Summary")
+    print(f"From: {from_date}")
+    print(f"To  : {to_date}")
+    print(f"User: {USERNAME}")
 
     headers = {
         "Content-Type": "application/json",
-        "apiKey": OZ_API_KEY
+        "accept": "application/json",
+        "apiKey": API_KEY.strip()
     }
-
-    to_date = datetime.utcnow()
-    from_date = to_date - timedelta(days=1)
 
     payload = {
-        "fromDate": from_date.strftime("%Y-%m-%d %H:%M:%S"),
-        "toDate": to_date.strftime("%Y-%m-%d %H:%M:%S"),
-        "userName": OZ_USERNAME
+        "fromDate": from_date,
+        "toDate": to_date,
+        "userName": USERNAME.strip()
     }
 
-    response = requests.post(url, headers=headers, json=payload, timeout=60)
-    response.raise_for_status()
+    try:
+        response = requests.post(API_URL, headers=headers, json=payload, timeout=60)
 
-    data = response.json()
-    if data.get("status") != "success":
-        raise Exception(data)
+        print("Status:", response.status_code)
 
-    return data.get("data", [])
+        if response.status_code != 200:
+            print("❌ API Error")
+            print(response.text[:500])
+            return None
 
-def write_csv(rows):
-    if not rows:
-        print("No data returned from API")
+        data = response.json()
+        print("Response keys:", list(data.keys()))
+
+        if data.get("status") != "success":
+            print("❌ API returned failure")
+            print(json.dumps(data, indent=2))
+            return None
+
+        rows = data.get("data", [])
+        print(f"📊 Records returned: {len(rows)}")
+
+        return rows
+
+    except Exception as e:
+        print("❌ Request failed:", e)
         return None
 
-    date_tag = datetime.utcnow().strftime("%Y-%m-%d")
-    file_path = OUTPUT_DIR / f"ozonetel_summary_{date_tag}.csv"
 
-    headers = rows[0].keys()
+def save_to_csv(data, filename="agent_summary_master.csv"):
+    """Overwrite single CSV (same behavior as your CDR script)"""
 
-    with open(file_path, "w", newline="", encoding="utf-8") as f:
+    if not data:
+        print("⚠️ No data to save — creating empty CSV")
+        open(filename, "w").close()
+        return filename
+
+    if not isinstance(data, list) or not isinstance(data[0], dict):
+        print("⚠️ Unexpected data format")
+        json.dump(data, open("agent_summary_debug.json", "w"), indent=2)
+        return None
+
+    headers = data[0].keys()
+
+    with open(filename, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=headers)
         writer.writeheader()
-        writer.writerows(rows)
+        writer.writerows(data)
 
-    print(f"CSV written: {file_path}")
-    return file_path
+    print(f"✅ Saved {len(data)} rows to {filename}")
+    return filename
+
 
 def main():
-    print("Fetching Ozonetel data…")
-    data = fetch_ozonetel_data()
+    print("=" * 60)
+    print("🚀 Agent Summary Fetch")
+    print("=" * 60)
 
-    print("Writing CSV…")
-    write_csv(data)
+    data = fetch_agent_summary()
+
+    result = save_to_csv(data)
+
+    if result:
+        print("✅ Done")
+        sys.exit(0)
+    else:
+        print("❌ Failed")
+        sys.exit(1)
+
 
 if __name__ == "__main__":
     main()
