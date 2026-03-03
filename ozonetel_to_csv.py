@@ -7,8 +7,9 @@ api_key = os.environ.get("OZONETEL_API_KEY")
 url = "https://in1-ccaas-api.ozonetel.com/ca_reports/summaryReport"
 
 payload = {
-    "fromDate": "2026-03-02 00:00:00",
-    "toDate": "2026-03-02 23:59:00",
+    yesterday = datetime.now() 
+    "fromDate" = yesterday.strftime('%Y-%m-%d 00:00:00')
+    "toDate" = yesterday.strftime('%Y-%m-%d 23:59:59')
     "userName": "qht_regrow"
 }
 headers = {
