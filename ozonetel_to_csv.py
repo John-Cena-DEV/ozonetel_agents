@@ -8,7 +8,7 @@ api_key = os.environ.get("OZONETEL_API_KEY")
 url = "https://in1-ccaas-api.ozonetel.com/ca_reports/summaryReport"
 
 # 2. Calculate yesterday's date
-yesterday = datetime.now() 
+yesterday = datetime.now()-timedelta(days=1)
 
 from_date = yesterday.strftime('%Y-%m-%d 00:00:00')
 to_date = yesterday.strftime('%Y-%m-%d 23:59:59')
