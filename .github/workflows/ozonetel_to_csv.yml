@@ -2,7 +2,7 @@ name: Fetch Ozonetel Report
 
 on:
   schedule:
-  - cron: '30 3 * * *' # Runs every day at 9:00 AM IST
+  - cron: '30 1 * * *' # Runs every day at 7:00 AM IST
   workflow_dispatch:      # Allows you to run it manually
 
 jobs:
